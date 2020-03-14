@@ -37,7 +37,7 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
         GROUP BY
             question.libelle
         HAVING
-            COUNT(*) = 3
+            COUNT(*) >= 3
         ) AS t -- on doit obligatoirement donner un alias à SQL pour les SELECT dans un FROM ¯\_(ツ)_/¯
     ```
 1. > *"Quels sont, pour chaque question, les pourcentages de réponses données correctes, deréponses données fausses, et de non-réponses ?"*
