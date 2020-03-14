@@ -113,7 +113,7 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
                         se_compose
                     WHERE current_session.no_quest = se_compose.no_quest
                 )
-        )
+        ) AS "non-réponses"
     FROM
         question
     ```
