@@ -38,7 +38,7 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
             question.libelle
         HAVING
             COUNT(*) >= 3
-        ) AS t -- on doit obligatoirement donner un alias à SQL pour les SELECT dans un FROM ¯\_(ツ)_/¯
+        ) AS t; -- on doit obligatoirement donner un alias à SQL pour les SELECT dans un FROM ¯\_(ツ)_/¯
     ```
 1. > *"Quels sont, pour chaque question, les pourcentages de réponses données correctes, deréponses données fausses, et de non-réponses ?"*
     ```sql
@@ -115,7 +115,7 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
                 )
         ) AS "non-réponses"
     FROM
-        question
+        question;
     ```
 1. > *"Liste alphabétique des personnes ayant donné une réponse correcte à toutes les questions lors d’au moins une session."*
     ```sql
@@ -159,10 +159,28 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
                 )
         )
     -- trie par rapport au nom et au prénom
-    ORDER BY curr_pers.nom_pers, curr_pers.prenom_pers
+    ORDER BY curr_pers.nom_pers, curr_pers.prenom_pers;
     ```
 1. > *"Quels utilisateurs ont répondu à des questionnaires portant sur tous les thèmes pour lesquels il existe des questionnaires ?"*
     ```sql
+    SELECT
+        -- formattage....
+        CONCAT(personne.nom_pers, " ", personne.prenom_pers) AS Personnes
+    FROM
+        personne
+        NATURAL JOIN quest_session
+        NATURAL JOIN questionnaire
+    -- on sélectionne tous les questionnaires répondus pour chaque personne
+    GROUP BY personne.no_pers
+    -- si on a autant de thèmes répondus différents qu'il existe de thèmes différents
+    HAVING COUNT(DISTINCT questionnaire.no_theme) = 
+        (
+            SELECT
+                -- le nombre de thèmes différents possibles à répondre
+                COUNT(DISTINCT questionnaire.no_theme)
+            FROM
+                questionnaire
+        );
     ```
 1. > *"Quels utilisateurs ont répondu au moins une fois à tous les questionnaires ?"*
     ```sql
