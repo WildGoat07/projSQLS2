@@ -184,6 +184,20 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
     ```
 1. > *"Quels utilisateurs ont répondu au moins une fois à tous les questionnaires ?"*
     ```sql
+    -- approche arithmétique
+    SELECT
+        CONCAT(UPPER(personne.nom_pers), " ", personne.prenom_pers) AS Personnes
+    FROM
+        personne
+        NATURAL JOIN quest_session
+    GROUP BY personne.no_pers
+    HAVING COUNT(DISTINCT quest_session.no_quest) =
+    (
+        SELECT
+            COUNT(*)
+        FROM
+            questionnaire
+    )
     ```
 1. > *"Score de la session numéro 23."*
     ```sql
