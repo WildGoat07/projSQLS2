@@ -272,7 +272,38 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
         ) AS pers
     ```
 1. > *"Quelles personnes ont réalisés les 10 meilleurs scores ?"*
+
+    On calcul encore et toujours le score de la même manière...
     ```sql
+    SELECT
+        CONCAT(UPPER(personne.nom_pers), " ", personne.prenom_pers) AS Personnes,
+        (
+            -- le nombre de bonnes réponses
+            SELECT
+            COUNT(*)
+            FROM
+            rep_donnee
+            NATURAL JOIN rep_proposee
+            WHERE
+            rep_donnee.no_session = curr_session.no_session
+            AND rep_proposee.etat_rep = true
+        ) * 2 -  -- on multiplie par deux, et on enlève le nombre de mauvaises réponses pour le score
+        (
+            SELECT
+            COUNT(*)
+            FROM
+            rep_donnee
+            NATURAL JOIN rep_proposee
+            WHERE
+            rep_donnee.no_session = curr_session.no_session
+            AND rep_proposee.etat_rep = false
+        ) AS Score, questionnaire.titres_quest AS Questionnaire
+    FROM
+        personne
+        NATURAL JOIN quest_session AS curr_session
+        NATURAL JOIN questionnaire
+    ORDER BY Score DESC
+    LIMIT 10
     ```
 1. > *"Existe-t-il des réponses données enregistrées ne correspondant pas à une question posée ?"*
     ```sql
