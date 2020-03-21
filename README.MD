@@ -200,7 +200,32 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
     )
     ```
 1. > *"Score de la session numéro 23."*
+    
+    **Note** : On va mettre comme règle : une bonne réponse = 2 pts, une mauvaise réponse = -1 pt, une non-réponse = 0 pts pour pimenter les choses 🔥
     ```sql
+    SELECT
+        bonnes_reponses.val AS `Réponses justes`, mauvaises_reponses.val AS `Réponses fausses`, bonnes_reponses.val * 2 - mauvaises_reponses.val AS Score
+    FROM
+        (
+            SELECT
+                COUNT(*) AS val
+            FROM
+                rep_donnee
+                NATURAL JOIN rep_proposee
+            WHERE
+                rep_donnee.no_session = 18
+                AND rep_proposee.etat_rep = true
+        ) AS bonnes_reponses,
+        (
+            SELECT
+                COUNT(*) AS val
+            FROM
+                rep_donnee
+                NATURAL JOIN rep_proposee
+            WHERE
+                rep_donnee.no_session = 18
+                AND rep_proposee.etat_rep = false
+        ) AS mauvaises_reponses
     ```
 1. > *"Quel est le pourcentage des personnes ayant participé à au moins 1 session qui ont obtenu un score supérieur à 0 lors d’au moins 1 session ?"*
     ```sql
