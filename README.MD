@@ -228,7 +228,48 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
         ) AS mauvaises_reponses
     ```
 1. > *"Quel est le pourcentage des personnes ayant participé à au moins 1 session qui ont obtenu un score supérieur à 0 lors d’au moins 1 session ?"*
+
+    Pareil, on calcul le score de la même manière qu'à la question précédente
     ```sql
+    SELECT
+        pers.val / total.val AS Pourcentage
+    FROM
+        (
+            -- le total des personnes ayant joué
+            SELECT
+                COUNT(DISTINCT quest_session.no_pers) AS val
+            FROM
+                quest_session
+        ) AS total,
+        (
+            SELECT
+                COUNT(DISTINCT curr_session.no_pers) AS val
+            FROM
+                quest_session AS curr_session
+            WHERE
+            -- calcul du score (copie pasta de la question précédente)
+            0 < (
+                    -- le nombre de bonnes réponses
+                    SELECT
+                        COUNT(*)
+                    FROM
+                        rep_donnee
+                        NATURAL JOIN rep_proposee
+                    WHERE
+                        rep_donnee.no_session = curr_session.no_session
+                        AND rep_proposee.etat_rep = true
+                ) * 2 -  -- on multiplie par deux, et on enlève le nombre de mauvaises réponses pour le score
+                (
+                    SELECT
+                        COUNT(*)
+                    FROM
+                        rep_donnee
+                        NATURAL JOIN rep_proposee
+                    WHERE
+                        rep_donnee.no_session = curr_session.no_session
+                        AND rep_proposee.etat_rep = false
+                )
+        ) AS pers
     ```
 1. > *"Quelles personnes ont réalisés les 10 meilleurs scores ?"*
     ```sql
