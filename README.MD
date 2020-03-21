@@ -307,4 +307,21 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
     ```
 1. > *"Existe-t-il des réponses données enregistrées ne correspondant pas à une question posée ?"*
     ```sql
+    SELECT
+        curr_rep.no_session AS `Session`, curr_rep.no_question AS `ID de la question répondu`
+    FROM
+        rep_donnee AS curr_rep
+    WHERE
+        -- pour chaque réponse, on vérifie qu'elle ne soit pas dans les questions posées lors de la session
+        curr_rep.no_question NOT IN
+        (
+            SELECT
+                se_compose.no_question
+            FROM
+                quest_session
+                NATURAL JOIN questionnaire
+                NATURAL JOIN se_compose
+            WHERE
+                quest_session.no_session = curr_rep.no_session
+        )
     ```
