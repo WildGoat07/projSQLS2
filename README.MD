@@ -3,7 +3,7 @@
 -->
 # Projet SQL S2
 
-Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-clé. Pour utiliser les requêtes suivantes, il faudra 
+Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-clé. Pour utiliser les requêtes suivantes, il faudra donc peut-être changer le nom de cette table
 
 ## Requêtes :
 
