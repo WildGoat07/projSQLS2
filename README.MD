@@ -1,5 +1,5 @@
 <!--
-    Attention ! Il s'agit d'un fichier text en markdown, pour voir un aperçu, allez ici -> https://github.com/WildGoat07/projSQLS2/blob/master/README.MD
+    Attention ! Il s'agit d'un fichier text en Markdown, pour voir un aperçu, allez ici -> https://github.com/WildGoat07/projSQLS2/blob/master/README.MD
 -->
 # Projet SQL S2
 
@@ -200,11 +200,9 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
     )
     ```
 1. > *"Score de la session numéro 23."*
-    
-    **Note** : On va mettre comme règle : une bonne réponse = 2 pts, une mauvaise réponse = -1 pt, une non-réponse = 0 pts pour pimenter les choses 🔥
     ```sql
     SELECT
-        bonnes_reponses.val AS `Réponses justes`, mauvaises_reponses.val AS `Réponses fausses`, bonnes_reponses.val * 2 - mauvaises_reponses.val AS Score
+        bonnes_reponses.val AS `Réponses justes`, mauvaises_reponses.val AS `Réponses fausses`, non_reponses.val AS `Non-réponses`, bonnes_reponses.val * 2 - mauvaises_reponses.val * 2 - non_reponses.val AS Score
     FROM
         (
             SELECT
@@ -225,11 +223,20 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
             WHERE
                 rep_donnee.no_session = 18
                 AND rep_proposee.etat_rep = false
-        ) AS mauvaises_reponses
+        ) AS mauvaises_reponses,
+        (
+            SELECT
+            	COUNT(*) as val
+            FROM
+            	quest_session
+            	NATURAL JOIN se_compose
+            	LEFT JOIN rep_donnee USING (no_session, no_question)
+            WHERE
+            	rep_donnee.no_ordre IS null
+            	AND quest_session.no_session = 18
+        ) AS non_reponses
     ```
 1. > *"Quel est le pourcentage des personnes ayant participé à au moins 1 session qui ont obtenu un score supérieur à 0 lors d’au moins 1 session ?"*
-
-    Pareil, on calcul le score de la même manière qu'à la question précédente
     ```sql
     SELECT
         pers.val / total.val AS Pourcentage
@@ -268,35 +275,60 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
                     WHERE
                         rep_donnee.no_session = curr_session.no_session
                         AND rep_proposee.etat_rep = false
+                ) * 2 -
+            	(
+                    -- les non-réponses
+                    SELECT
+                    	COUNT(*)
+                    FROM
+                    	quest_session
+                    	NATURAL JOIN se_compose
+                    	-- on a récupéré toutes les questions du questionnaire en cours
+                    	LEFT JOIN rep_donnee USING(no_session, no_question) -- on récupère les réponses données
+                    WHERE
+                    	quest_session.no_session = curr_session.no_session
+                    	AND rep_donnee.no_ordre IS null
+                    
                 )
         ) AS pers
     ```
 1. > *"Quelles personnes ont réalisés les 10 meilleurs scores ?"*
-
-    On calcul encore et toujours le score de la même manière...
     ```sql
     SELECT
         CONCAT(UPPER(personne.nom_pers), " ", personne.prenom_pers) AS Personnes,
         (
             -- le nombre de bonnes réponses
             SELECT
-            COUNT(*)
+            	COUNT(*)
             FROM
-            rep_donnee
-            NATURAL JOIN rep_proposee
+            	rep_donnee
+            	NATURAL JOIN rep_proposee
             WHERE
-            rep_donnee.no_session = curr_session.no_session
-            AND rep_proposee.etat_rep = true
-        ) * 2 -  -- on multiplie par deux, et on enlève le nombre de mauvaises réponses pour le score
+            	rep_donnee.no_session = curr_session.no_session
+            	AND rep_proposee.etat_rep = true
+        ) * 2 -
         (
+            -- les mauvaises réponses
             SELECT
-            COUNT(*)
+            	COUNT(*)
             FROM
-            rep_donnee
-            NATURAL JOIN rep_proposee
+            	rep_donnee
+            	NATURAL JOIN rep_proposee
             WHERE
-            rep_donnee.no_session = curr_session.no_session
+            	rep_donnee.no_session = curr_session.no_session
             AND rep_proposee.etat_rep = false
+        ) * 2 -
+        (
+            -- les non-réponses
+            SELECT
+            	COUNT(*)
+            FROM
+            	quest_session
+            	NATURAL JOIN se_compose
+            	LEFT JOIN rep_donnee USING (no_session, no_question)
+            WHERE
+            	quest_session.no_session = curr_session.no_session
+            	AND rep_donnee.no_ordre IS null
         ) AS Score, questionnaire.titres_quest AS Questionnaire
     FROM
         personne
