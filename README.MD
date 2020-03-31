@@ -3,7 +3,7 @@
 -->
 # Projet SQL S2
 
-Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-clé. Pour utiliser les requêtes suivantes, il faudra donc peut-être changer le nom de cette table
+Note : Notre table `session` s'appelle `session` car `session` est un mot-clé. Pour utiliser les requêtes suivantes, il faudra donc peut-être changer le nom de cette table
 
 ## Requêtes :
 
@@ -39,6 +39,31 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
         HAVING
             COUNT(*) >= 3
         ) AS t; -- on doit obligatoirement donner un alias à SQL pour les SELECT dans un FROM ¯\_(ツ)_/¯
+    ```
+    alternative :
+    ```sql
+    CREATE TEMPORARY TABLE T1
+    SELECT QN.no_question
+    FROM question QN, theme T, rep_proposee RP
+    WHERE libelle_theme="sport"
+    AND etat_rep="TRUE"
+    AND T.no_theme=QN.no_theme
+    AND QN.no_question=RP.no_question
+    GROUP BY QN.no_question
+    HAVING COUNT (etat_rep)>=3
+    ;
+    CREATE TEMPORARY TABLE T2
+    SELECT COUNT(*) n1
+    FROM T1
+    ;
+    CREATE TEMPORARY TABLE T3
+    SELECT COUNT(no_question) n2
+    FROM question QN, theme T
+    WHERE libelle_theme="sport"
+    AND T.no_theme=QN.no_theme
+    ;
+    SELECT (100*n1)/n2
+    FROM T2, T3
     ```
 1. > *"Quels sont, pour chaque question, les pourcentages de réponses données correctes, deréponses données fausses, et de non-réponses ?"*
     ```sql
@@ -102,7 +127,7 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
             SELECT
                 COUNT(*)
             FROM
-                quest_session AS current_session
+                session AS current_session
             WHERE
                 numero IN
                 (
@@ -116,6 +141,66 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
         ) AS "non-réponses"
     FROM
         question;
+    ```
+    alternative :
+    ```sql
+    CREATE TEMPORARY TABLE T1
+    SELECT no_question,COUNT(*)AS n1
+    FROM  session S, se_compose SC
+    WHERE  S.no_quest=SC.no_quest
+    GROUP BY no_question
+    ;
+    CREATE TEMPORARY TABLE T2
+    SELECT SC.no_question,COUNT(*)AS n2
+    FROM session S, rep_proposee RP, se_compose SC, rep_donnee RD
+    WHERE RP.etat_rep="TRUE"
+    AND RP.no_question=SC.no_question
+    AND RD.no_ordre=RP.no_ordre
+    AND RD.no_question=SC.no_question
+    AND S.no_quest=SC.no_quest
+    AND S.no_session=RD.no_session
+    GROUP BY SC.no_question
+    UNION
+    SELECT no_question,0
+    FROM session S, se_compose SC
+    WHERE S.no_quest=SC.no_quest
+    AND no_question NOT IN 
+    (
+        SELECT RD.no_question
+        FROM rep_proposee RP, rep_donnee RD
+        WHERE RD.no_question=RP.no_question
+        AND RD.no_ordre=RP.no_ordre
+        AND etat_rep="TRUE"  
+    )
+    ;
+    CREATE TEMPORARY TABLE T3
+    SELECT SC.no_question,COUNT(*)AS n3
+    FROM session S, rep_proposee RP, se_compose SC, rep_donnee RD
+    WHERE RP.etat_rep="FALSE"
+    AND RP.no_question=SC.no_question
+    AND RD.no_ordre=RP.no_ordre
+    AND RD.no_question=SC.no_question
+    AND S.no_quest=SC.no_quest
+    AND S.no_session=RD.no_session
+    GROUP BY SC.no_question
+    UNION
+    SELECT no_question,0
+    FROM session S, se_compose SC
+    WHERE S.no_quest=SC.no_quest
+    AND no_question NOT IN 
+    (
+        SELECT RD.no_question
+        FROM rep_proposee RP, rep_donnee RD
+        WHERE RD.no_question=RP.no_question
+        AND RD.no_ordre=RP.no_ordre
+        AND etat_rep="FALSE"    
+    )
+    ;
+    SELECT T1.no_question, 100*n2/n1 AS bonne_rep, 100*n3/n1 AS mauvais_rep, 100*(n1-n2-n3)/n1 AS false_rep
+    FROM T1,T2,T3
+    WHERE T1.no_question=T2.no_question
+    AND T1.no_question=T3.no_question
+    ORDER BY  T1.no_question
     ```
 1. > *"Liste alphabétique des personnes ayant donné une réponse correcte à toutes les questions lors d’au moins une session."*
     ```sql
@@ -132,7 +217,7 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
             SELECT
                 curr_session.no_session
             FROM
-                quest_session AS curr_session
+                session AS curr_session
                 NATURAL JOIN questionnaire AS curr_questionnaire
             WHERE
                 -- on lie à notre personne actuelle
@@ -161,6 +246,30 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
     -- trie par rapport au nom et au prénom
     ORDER BY curr_pers.nom_pers, curr_pers.prenom_pers;
     ```
+    alternative :
+    ```sql
+    CREATE TEMPORARY TABLE T1
+    SELECT no_session, count(no_question) n1,no_pers
+    FROM session S, se_compose SC
+    WHERE S.no_quest=SC.no_quest
+    GROUP BY no_session
+    ;
+    CREATE TEMPORARY TABLE T2
+    SELECT S.no_session, count(RD.no_question) n2, no_pers
+    FROM session S, rep_donnee RD, rep_proposee RP
+    WHERE RD.no_session=S.no_session
+    AND etat_rep= "TRUE"
+    AND RP.no_question=RD.no_question
+    AND RP.no_ordre=RD.no_ordre
+    GROUP BY no_session
+    ;
+    SELECT DISTINCT T2.no_pers, nom_pers, prenom_pers, T2.no_session, n1,n2
+    FROM T1, T2, personne P
+    WHERE P.no_pers=T2.no_pers
+    AND T1.no_session=T2.no_session
+    AND n1=n2
+    ORDER BY  nom_pers
+    ```
 1. > *"Quels utilisateurs ont répondu à des questionnaires portant sur tous les thèmes pour lesquels il existe des questionnaires ?"*
     ```sql
     SELECT
@@ -168,7 +277,7 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
         CONCAT(personne.nom_pers, " ", personne.prenom_pers) AS Personnes
     FROM
         personne
-        NATURAL JOIN quest_session
+        NATURAL JOIN session
         NATURAL JOIN questionnaire
     -- on sélectionne tous les questionnaires répondus pour chaque personne
     GROUP BY personne.no_pers
@@ -182,6 +291,27 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
                 questionnaire
         );
     ```
+    alternative :
+    ```sql
+    CREATE TEMPORARY TABLE T1
+    SELECT P.no_pers, COUNT(DISTINCT Q.no_theme) n1
+    FROM  personne P, session S, questionnaire Q
+    WHERE P.no_pers=S.no_pers
+    AND S.no_quest=Q.no_quest
+    GROUP BY no_pers
+    ;
+
+    CREATE TEMPORARY TABLE T2
+    SELECT COUNT(T.no_theme) n2
+    FROM theme T, questionnaire QN
+    Where T.no_theme=QN.no_theme
+    ;
+
+    SELECT P.no_pers, nom_pers, prenom_pers, n1, n2
+    FROM T1,T2,personne P
+    WHERE P.no_pers=T1.no_pers
+    AND n1=n2
+    ```
 1. > *"Quels utilisateurs ont répondu au moins une fois à tous les questionnaires ?"*
     ```sql
     -- approche arithmétique
@@ -189,15 +319,33 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
         CONCAT(UPPER(personne.nom_pers), " ", personne.prenom_pers) AS Personnes
     FROM
         personne
-        NATURAL JOIN quest_session
+        NATURAL JOIN session
     GROUP BY personne.no_pers
-    HAVING COUNT(DISTINCT quest_session.no_quest) =
+    HAVING COUNT(DISTINCT session.no_quest) =
     (
         SELECT
             COUNT(*)
         FROM
             questionnaire
     )
+    ```
+    alternative :
+    ```sql
+    CREATE TEMPORARY TABLE T1
+    SELECT P.no_pers, nom_pers, prenom_pers, COUNT(DISTINCT  S.no_quest) n1
+    FROM personne P, session S, questionnaire Q
+    WHERE P.no_pers=S.no_pers
+    AND S.no_quest=Q.no_quest
+    GROUP BY no_pers
+    ;
+    CREATE TEMPORARY TABLE T2
+    SELECT COUNT(no_quest) n2
+    FROM questionnaire
+    ;
+    Select P.no_pers, P.nom_pers, P.prenom_pers 
+    From T1, T2, personne P
+    Where P.no_pers=T1.no_pers
+    And n1=n2
     ```
 1. > *"Score de la session numéro 23."*
     ```sql
@@ -228,13 +376,50 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
             SELECT
             	COUNT(*) as val
             FROM
-            	quest_session
+            	session
             	NATURAL JOIN se_compose
             	LEFT JOIN rep_donnee USING (no_session, no_question)
             WHERE
             	rep_donnee.no_ordre IS null
-            	AND quest_session.no_session = 18
+            	AND session.no_session = 18
         ) AS non_reponses
+    ```
+    alternative :
+    ```sql
+    CREATE TEMPORARY TABLE T1
+    SELECT S.no_session, COUNT(RD.no_question) n1
+    FROM session S, rep_donnee RD, rep_proposee RP
+    WHERE S.no_session="10"
+    AND S.no_session=RD.no_session
+    AND RD.no_question=RP.no_question
+    AND RD.no_ordre=RP.no_ordre
+    AND etat_rep="TRUE"
+    ;
+
+    CREATE TEMPORARY TABLE T2
+    SELECT S.no_session, COUNT(RD.no_question) n2
+    FROM session S, rep_donnee RD, rep_proposee RP
+    WHERE S.no_session="10"
+    AND S.no_session=RD.no_session
+    AND RD.no_question=RP.no_question
+    AND RD.no_ordre=RP.no_ordre
+    AND etat_rep="FALSE"
+    ;
+
+    CREATE TEMPORARY TABLE T3
+    SELECT S.no_session, COUNT(SC.no_question) n3
+    FROM se_compose SC, session S
+    WHERE S.no_session="10"
+    AND S.no_quest=SC.no_quest
+    AND SC.no_question NOT IN(
+                SELECT RD.no_question
+                FROM session S, rep_donnee RD
+                WHERE S.no_session="10"
+                AND S.no_session=RD.no_session )
+    ;
+
+    SELECT T1.no_session, 2*n1-2*n2-n3 AS score
+    FROM   T1, T2, T3
     ```
 1. > *"Quel est le pourcentage des personnes ayant participé à au moins 1 session qui ont obtenu un score supérieur à 0 lors d’au moins 1 session ?"*
     ```sql
@@ -244,15 +429,15 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
         (
             -- le total des personnes ayant joué
             SELECT
-                COUNT(DISTINCT quest_session.no_pers) AS val
+                COUNT(DISTINCT session.no_pers) AS val
             FROM
-                quest_session
+                session
         ) AS total,
         (
             SELECT
                 COUNT(DISTINCT curr_session.no_pers) AS val
             FROM
-                quest_session AS curr_session
+                session AS curr_session
             WHERE
             -- calcul du score (copie pasta de la question précédente)
             0 < (
@@ -281,16 +466,88 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
                     SELECT
                     	COUNT(*)
                     FROM
-                    	quest_session
+                    	session
                     	NATURAL JOIN se_compose
                     	-- on a récupéré toutes les questions du questionnaire en cours
                     	LEFT JOIN rep_donnee USING(no_session, no_question) -- on récupère les réponses données
                     WHERE
-                    	quest_session.no_session = curr_session.no_session
+                    	session.no_session = curr_session.no_session
                     	AND rep_donnee.no_ordre IS null
                     
                 )
         ) AS pers
+    ```
+    alternative :
+    ```sql
+    CREATE TEMPORARY TABLE T1
+    SELECT S.no_session, SC.no_question,COUNT(*)AS n1
+    FROM  session S, se_compose SC
+    WHERE  S.no_quest=SC.no_quest
+    GROUP BY no_session
+    ;
+    CREATE TEMPORARY TABLE T2
+    SELECT  S.no_session, RD.no_question,COUNT(distinct RD.no_question)AS n2
+    FROM session S, rep_proposee RP, rep_donnee RD
+    WHERE S.no_session=RD.no_session
+    AND RD.no_ordre=RP.no_ordre
+    AND RD.no_question=RP.no_question
+    AND etat_rep="TRUE"
+    GROUP BY S.no_session
+    UNION
+    SELECT  S.no_session, SC.no_question,0
+    FROM session S, se_compose SC
+    WHERE S.no_quest=SC.no_quest
+    AND no_question NOT IN 
+    (
+        SELECT RD.no_question
+        FROM rep_proposee RP, rep_donnee RD
+        WHERE RD.no_question=RP.no_question
+        AND RD.no_ordre=RP.no_ordre
+        AND etat_rep="TRUE"  
+    )
+    ;
+    CREATE TEMPORARY TABLE T3
+    SELECT  S.no_session, RD.no_question,COUNT(distinct RD.no_question)AS n3
+    FROM session S, rep_proposee RP, rep_donnee RD
+    WHERE S.no_session=RD.no_session
+    AND RD.no_ordre=RP.no_ordre
+    AND RD.no_question=RP.no_question
+    AND etat_rep="FALSE"
+    GROUP BY S.no_session
+    UNION
+    SELECT  S.no_session, SC.no_question,0
+    FROM session S, se_compose SC
+    WHERE S.no_quest=SC.no_quest
+    AND no_question NOT IN 
+    (
+        SELECT RD.no_question
+        FROM rep_proposee RP, rep_donnee RD
+        WHERE RD.no_question=RP.no_question
+        AND RD.no_ordre=RP.no_ordre
+        AND etat_rep="FALSE"  
+    )
+    ;
+    CREATE TEMPORARY TABLE T4
+    SELECT T1.no_session, n1 AS total_rep, n2 AS bon_rep, n3 AS mauvai_rep, n1-n2-n3 AS false_rep, 3*n2-n3-n1 AS score
+    FROM T1,T2,T3
+    WHERE T1.no_session=T2.no_session
+    AND T1.no_session=T3.no_session
+    GROUP BY  T1.no_session
+    ;
+    CREATE TEMPORARY TABLE T5
+    SELECT T4.no_session, S.no_pers, P.nom_pers, P.prenom_pers, COUNT(DISTINCT S.no_pers) rp
+    FROM T4, session S, personne P
+    WHERE score>0
+    AND T4.no_session=S.no_session
+    AND S.no_pers=P.no_pers
+    ;
+    CREATE TEMPORARY TABLE T6
+    SELECT COUNT(DISTINCT S.no_pers) rt
+    FROM personne P, session S
+    WHERE P.no_pers=S.no_pers
+    ;
+    SELECT 100*rp/rt
+    FROM T5,T6
     ```
 1. > *"Quelles personnes ont réalisés les 10 meilleurs scores ?"*
     ```sql
@@ -323,19 +580,83 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
             SELECT
             	COUNT(*)
             FROM
-            	quest_session
+            	session
             	NATURAL JOIN se_compose
             	LEFT JOIN rep_donnee USING (no_session, no_question)
             WHERE
-            	quest_session.no_session = curr_session.no_session
+            	session.no_session = curr_session.no_session
             	AND rep_donnee.no_ordre IS null
         ) AS Score, questionnaire.titres_quest AS Questionnaire
     FROM
         personne
-        NATURAL JOIN quest_session AS curr_session
+        NATURAL JOIN session AS curr_session
         NATURAL JOIN questionnaire
     ORDER BY Score DESC
     LIMIT 10
+    ```
+    alternative :
+    ```sql
+    CREATE TEMPORARY TABLE T1
+    SELECT S.no_session, SC.no_question,COUNT(*)AS n1
+    FROM  session S, se_compose SC
+    WHERE  S.no_quest=SC.no_quest
+    GROUP BY no_session
+    ;
+    CREATE TEMPORARY TABLE T2
+    SELECT  S.no_session, RD.no_question,COUNT(distinct RD.no_question)AS n2
+    FROM session S, rep_proposee RP, rep_donnee RD
+    WHERE S.no_session=RD.no_session
+    AND RD.no_ordre=RP.no_ordre
+    AND RD.no_question=RP.no_question
+    AND etat_rep="TRUE"
+    GROUP BY S.no_session
+    UNION
+    SELECT  S.no_session, SC.no_question,0
+    FROM session S, se_compose SC
+    WHERE S.no_quest=SC.no_quest
+    AND no_question NOT IN 
+    (
+        SELECT RD.no_question
+        FROM rep_proposee RP, rep_donnee RD
+        WHERE RD.no_question=RP.no_question
+        AND RD.no_ordre=RP.no_ordre
+        AND etat_rep="TRUE"  
+    )
+    ;
+    CREATE TEMPORARY TABLE T3
+    SELECT  S.no_session, RD.no_question,COUNT(distinct RD.no_question)AS n3
+    FROM session S, rep_proposee RP, rep_donnee RD
+    WHERE S.no_session=RD.no_session
+    AND RD.no_ordre=RP.no_ordre
+    AND RD.no_question=RP.no_question
+    AND etat_rep="FALSE"
+    GROUP BY S.no_session
+    UNION
+    SELECT  S.no_session, SC.no_question,0
+    FROM session S, se_compose SC
+    WHERE S.no_quest=SC.no_quest
+    AND no_question NOT IN 
+    (
+        SELECT RD.no_question
+        FROM rep_proposee RP, rep_donnee RD
+        WHERE RD.no_question=RP.no_question
+        AND RD.no_ordre=RP.no_ordre
+        AND etat_rep="FALSE"  
+    )
+    ;
+    CREATE TEMPORARY TABLE T4
+    SELECT T1.no_session, n1 AS total_rep, n2 AS bon_rep, n3 AS mauvai_rep, n1-n2-n3 AS false_rep, 3*n2-n3-n1 AS score
+    FROM T1,T2,T3
+    WHERE T1.no_session=T2.no_session
+    AND T1.no_session=T3.no_session
+    GROUP BY  T1.no_session
+    ORDER BY score DESC
+    LIMIT 10
+    ;
+    SELECT T4.no_session, P.no_pers, P.nom_pers, P.prenom_pers, score
+    FROM T4, session S, personne P
+    WHERE T4.no_session=S.no_session
+    AND S.no_pers=P.no_pers
     ```
 1. > *"Existe-t-il des réponses données enregistrées ne correspondant pas à une question posée ?"*
     ```sql
@@ -350,10 +671,20 @@ Note : Notre table `session` s'appelle `quest_session` car `session` est un mot-
             SELECT
                 se_compose.no_question
             FROM
-                quest_session
+                session
                 NATURAL JOIN questionnaire
                 NATURAL JOIN se_compose
             WHERE
-                quest_session.no_session = curr_rep.no_session
+                session.no_session = curr_rep.no_session
         )
+    ```
+    alternative :
+    ```sql
+    SELECT RD.no_session, RD.no_question
+    FROM rep_donnee RD
+    WHERE RD.no_question NOT IN(
+                SELECT SC.no_question
+                FROM session S, se_compose SC
+                WHERE S.no_quest=SC.no_quest
+                )
     ```
